@@ -1,0 +1,9 @@
+#yml files all in all diectories 
+# Ignore all .yml files
+*.yml
+*.txt
+/dummycode
+
+# Node modules folder and all the modules inside it
+/node_modules/
+
