@@ -395,7 +395,6 @@ Contributions welcome. Some ideas:
 - **Language support** — add extractors for Python, Go, Rust (pluggable AST backends)
 - **More migration formats** — Prisma, Knex, Rails-style
 - **View/materialized view parsing** — currently not handled
-- **Constants and enums** — extract top-level `const` values and TypeScript enums
 - **Custom scoring weights** — configurable via `ctxforge.config.json`
 - **Editor integration** — VS Code extension that generates context on save
 

@@ -53,11 +53,13 @@ function scoreFile(sourceFile: SourceFile, queryTerms: string[]): number {
     // 1. Filename terms (Weight: 5.0)
     const fileName = sourceFile.getBaseNameWithoutExtension().toLowerCase();
     
-    // 2. Identifiers (Classes, Interfaces, Functions) (Weight: 3.0)
+    // 2. Identifiers (Classes, Interfaces, Functions, Enums, TypeAliases) (Weight: 3.0)
     const identifiers: string[] = [];
     sourceFile.getClasses().forEach(c => identifiers.push(c.getName() || ""));
     sourceFile.getInterfaces().forEach(i => identifiers.push(i.getName() || ""));
     sourceFile.getFunctions().forEach(f => identifiers.push(f.getName() || ""));
+    sourceFile.getEnums().forEach(e => identifiers.push(e.getName() || ""));
+    sourceFile.getTypeAliases().forEach(t => identifiers.push(t.getName() || ""));
     
     const identifierBlob = identifiers.join(" ").toLowerCase();
 

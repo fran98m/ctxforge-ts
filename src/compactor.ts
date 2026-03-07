@@ -216,6 +216,64 @@ function sourceFileToYaml(sourceFile: SourceFile, basePath: string): string {
         }
     }
 
+    // ── Enums ──
+    const enums = sourceFile.getEnums();
+    if (enums.length > 0) {
+        for (const en of enums) {
+            const exported = en.isExported() ? "export " : "";
+            const members = en.getMembers().map(m => {
+                const val = m.getValue();
+                return val !== undefined ? `${m.getName()} = ${JSON.stringify(val)}` : m.getName();
+            });
+            lines.push(`    ${exported}enum ${en.getName()}: [${members.join(" | ")}]`);
+        }
+    }
+
+    // ── Type aliases ──
+    const typeAliases = sourceFile.getTypeAliases();
+    if (typeAliases.length > 0) {
+        for (const ta of typeAliases) {
+            const exported = ta.isExported() ? "export " : "";
+            const typeText = ta.getTypeNode()?.getText() || "unknown";
+            // Compact union types onto one line, cap at 100 chars
+            const compact = typeText.replace(/\s+/g, " ");
+            if (compact.length <= 100) {
+                lines.push(`    ${exported}type ${ta.getName()} = ${compact}`);
+            } else {
+                lines.push(`    ${exported}type ${ta.getName()} = ${compact.slice(0, 97)}...`);
+            }
+        }
+    }
+
+    // ── Const values (non-function) ──
+    const constDecls = sourceFile.getVariableDeclarations().filter(v => {
+        const init = v.getInitializer();
+        if (!init) return false;
+        const kind = init.getKindName();
+        // Skip arrow functions / function expressions (handled below)
+        if (kind === "ArrowFunction" || kind === "FunctionExpression") return false;
+        // Only include exported or UPPER_CASE consts (likely config/constants)
+        if (v.isExported()) return true;
+        return /^[A-Z][A-Z0-9_]+$/.test(v.getName());
+    });
+    if (constDecls.length > 0) {
+        lines.push(`    constants:`);
+        for (const c of constDecls) {
+            const init = c.getInitializer();
+            if (!init) continue;
+            const typeText = c.getTypeNode()?.getText();
+            const valueText = init.getText().replace(/\s+/g, " ");
+            // For short values, inline them; for long ones, show type or truncate
+            if (valueText.length <= 80) {
+                lines.push(`      ${c.getName()} = ${valueText}`);
+            } else if (typeText) {
+                lines.push(`      ${c.getName()}: ${typeText}`);
+            } else {
+                lines.push(`      ${c.getName()} = ${valueText.slice(0, 77)}...`);
+            }
+        }
+    }
+
     const functions = sourceFile.getFunctions();
     const arrowFns = sourceFile.getVariableDeclarations().filter(v => {
         const init = v.getInitializer();
@@ -441,9 +499,16 @@ export function compactAllCode(codePath: string): { yaml: string; fileNames: str
             sourceFile.getInterfaces().length > 0 ||
             sourceFile.getClasses().length > 0 ||
             sourceFile.getFunctions().length > 0 ||
+            sourceFile.getEnums().length > 0 ||
+            sourceFile.getTypeAliases().length > 0 ||
             sourceFile.getVariableDeclarations().some(v => {
                 const init = v.getInitializer();
-                return init && (init.getKindName() === "ArrowFunction" || init.getKindName() === "FunctionExpression");
+                if (!init) return false;
+                const kind = init.getKindName();
+                if (kind === "ArrowFunction" || kind === "FunctionExpression") return true;
+                // Include files with exported or UPPER_CASE consts
+                if (v.isExported()) return true;
+                return /^[A-Z][A-Z0-9_]+$/.test(v.getName());
             });
 
         if (!hasStructure) continue;
