@@ -378,7 +378,7 @@ results/              ← Generated context bundles land here
 
 ## Philosophy
 
-This tool was born from the [Context Engineering Framework](https://github.com/your-username/context-engineering-framework) — a methodology for solo developers shipping production software with AI on local hardware (single RTX 3090).
+This tool was born from the [Context Engineering Framework](https://github.com/fran98m/CtxForge) — a methodology for solo developers shipping production software with AI on local hardware (single RTX 3090).
 
 Built around three principles:
 
@@ -403,6 +403,6 @@ Contributions welcome. Some ideas:
 
 ## License
 
-MIT — [Francisco Montalvo](https://github.com/your-username)
+MIT — [Francisco Montalvo](https://github.com/fran98m)
 
 See [LICENSE.txt](LICENSE.txt) for details.
