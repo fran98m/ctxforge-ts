@@ -68,7 +68,7 @@ That's it. The LLM knows: what the function accepts, what it returns, what it do
 
 ```bash
 # Clone
-git clone https://github.com/your-username/ctxforge-ts.git
+git clone https://github.com/fran98m/ctxforge-ts.git
 cd ctxforge-ts
 
 # Install
