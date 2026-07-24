@@ -20,7 +20,13 @@ function columnToYaml(col: ColumnDef): string {
     const parts: string[] = [col.dataType];
 
     if (!col.nullable) parts.push("not null");
-    if (col.defaultValue !== undefined) parts.push(`default ${col.defaultValue}`);
+    if (col.defaultValue !== undefined) {
+        // Quote string-literal defaults so they're unambiguous — otherwise an empty
+        // string renders as a dangling "default " and a value like 'DEFAULT' is
+        // indistinguishable from a keyword. Non-string defaults (NOW(), 0, TRUE) stay bare.
+        const dv = col.defaultIsString ? `'${col.defaultValue}'` : col.defaultValue;
+        parts.push(`default ${dv}`);
+    }
     if (col.isUnique) parts.push("unique");
 
     let line = `${col.name}: ${parts.join(", ")}`;

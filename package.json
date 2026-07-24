@@ -8,17 +8,22 @@
     "test:watch": "vitest",
     "fetch": "tsx src/fetcher.ts",
     "search": "tsx src/search.ts",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp-server.ts",
+    "mcp:smoke": "tsx scripts/mcp-smoke.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^25.3.3",
-    "better-sqlite3": "^12.6.2",
     "ts-morph": "^27.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   }
 }
