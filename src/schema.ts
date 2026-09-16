@@ -23,6 +23,7 @@ export interface ColumnDef {
     enumValues?: string[];   // detected from CHECK or TYPE
     references?: string;     // e.g. "users(id)"
     comment?: string;        // inline SQL comment
+    defaultIsString?: boolean; // true if the DEFAULT was a quoted string literal
 }
 
 export interface TableSchema {
@@ -89,6 +90,21 @@ function extractUpSection(filePath: string): string {
 // ─── SQL Parsers ─────────────────────────────────────────────────────────────
 
 /**
+ * Unwraps a SQL string literal: strips the outer single quotes and collapses
+ * the doubled-quote escape ('' -> '). Non-quoted tokens pass through untouched.
+ *   'active'          -> active
+ *   '''30 minutes'''  -> '30 minutes'
+ *   NOW()             -> NOW()
+ */
+function unquoteSqlLiteral(v: string): string {
+    const s = v.trim();
+    if (s.length >= 2 && s.startsWith("'") && s.endsWith("'")) {
+        return s.slice(1, -1).replace(/''/g, "'");
+    }
+    return s;
+}
+
+/**
  * Parses a CREATE TYPE ... AS ENUM (...) statement.
  * Handles: CREATE TYPE order_status AS ENUM ('active', 'cancelled', 'pending');
  */
@@ -100,7 +116,7 @@ function parseCreateEnum(sql: string, state: SchemaState): boolean {
     const typeName = match[2].toLowerCase();
     const values = match[3]
         .split(",")
-        .map(v => v.trim().replace(/^'|'$/g, ""))
+        .map(unquoteSqlLiteral)
         .filter(v => v.length > 0);
 
     state.enums.set(typeName, values);
@@ -156,9 +172,10 @@ function parseColumnDef(line: string, state: SchemaState): ColumnDef | null {
     };
 
     // Extract DEFAULT value
-    const defaultMatch = rest.match(/DEFAULT\s+('(?:[^']*)'|[\w().]+)/i);
+    const defaultMatch = rest.match(/DEFAULT\s+('(?:[^']|'')*'|[\w().{}\[\]]+)/i);
     if (defaultMatch) {
-        col.defaultValue = defaultMatch[1].replace(/^'|'$/g, "");
+        col.defaultIsString = defaultMatch[1].startsWith("'");
+        col.defaultValue = unquoteSqlLiteral(defaultMatch[1]);
     }
 
     // Extract REFERENCES (inline FK)
@@ -173,7 +190,7 @@ function parseColumnDef(line: string, state: SchemaState): ColumnDef | null {
     if (checkMatch) {
         col.enumValues = checkMatch[1]
             .split(",")
-            .map(v => v.trim().replace(/^'|'$/g, ""))
+            .map(unquoteSqlLiteral)
             .filter(v => v.length > 0);
     }
 
@@ -234,7 +251,7 @@ function parseCreateTable(sql: string, state: SchemaState): boolean {
             const colName = checkMatch[1].toLowerCase();
             const values = checkMatch[2]
                 .split(",")
-                .map(v => v.trim().replace(/^'|'$/g, ""))
+                .map(unquoteSqlLiteral)
                 .filter(v => v.length > 0);
             const col = table.columns.get(colName);
             if (col) col.enumValues = values;
@@ -276,9 +293,9 @@ function parseAlterTable(sql: string, state: SchemaState): boolean {
 
     const upper = action.toUpperCase();
 
-    // ADD COLUMN
+    // ADD COLUMN  (tolerate the idempotent "IF NOT EXISTS" modifier)
     if (upper.startsWith("ADD COLUMN") || upper.match(/^ADD\s+"?\w+"?\s+\w/)) {
-        const colText = action.replace(/^ADD\s+(?:COLUMN\s+)?/i, "");
+        const colText = action.replace(/^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?/i, "");
         const col = parseColumnDef(colText, state);
         if (col) {
             table.columns.set(col.name, col);
@@ -324,9 +341,12 @@ function parseAlterTable(sql: string, state: SchemaState): boolean {
                 if (modification.includes("DROP NOT NULL")) col.nullable = true;
 
                 // SET DEFAULT / DROP DEFAULT
-                const defMatch = modMatch[2].match(/SET\s+DEFAULT\s+('(?:[^']*)'|[\w().]+)/i);
-                if (defMatch) col.defaultValue = defMatch[1].replace(/^'|'$/g, "");
-                if (modification.includes("DROP DEFAULT")) col.defaultValue = undefined;
+                const defMatch = modMatch[2].match(/SET\s+DEFAULT\s+('(?:[^']|'')*'|[\w().{}\[\]]+)/i);
+                if (defMatch) {
+                    col.defaultIsString = defMatch[1].startsWith("'");
+                    col.defaultValue = unquoteSqlLiteral(defMatch[1]);
+                }
+                if (modification.includes("DROP DEFAULT")) { col.defaultValue = undefined; col.defaultIsString = undefined; }
 
                 // TYPE change
                 const typeMatch = modMatch[2].match(/(?:SET\s+DATA\s+)?TYPE\s+(\w+(?:\s*\([^)]*\))?)/i);
@@ -343,7 +363,7 @@ function parseAlterTable(sql: string, state: SchemaState): boolean {
             const colName = checkMatch[1].toLowerCase();
             const values = checkMatch[2]
                 .split(",")
-                .map(v => v.trim().replace(/^'|'$/g, ""))
+                .map(unquoteSqlLiteral)
                 .filter(v => v.length > 0);
             const col = table.columns.get(colName);
             if (col) col.enumValues = values;
